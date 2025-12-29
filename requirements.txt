@@ -1,0 +1,18 @@
+# Entrance Detection System Dependencies
+
+# Core ML
+ultralytics>=8.0.0
+numpy>=1.21.0
+
+# Video Processing
+opencv-python>=4.5.0
+
+# MQTT
+paho-mqtt>=1.6.0
+
+# Environment Variables
+python-dotenv>=1.0.0
+
+# Optional: GPU Support (uncomment if using CUDA)
+# torch>=2.0.0
+# torchvision>=0.15.0
