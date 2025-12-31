@@ -75,11 +75,11 @@ Edit file `final.py` atau buat file `.env` untuk mengubah konfigurasi:
 
 | Parameter | Default | Deskripsi |
 |-----------|---------|-----------|
-| `broker` | `206.237.97.19` | Alamat MQTT broker |
+| `broker` | `` | Alamat MQTT broker |
 | `port` | `1883` | Port MQTT |
-| `username` | `urbansolv` | Username MQTT |
-| `password` | `letsgosolv` | Password MQTT |
-| `topic` | `entrance/device-1/data` | Topic untuk publish data |
+| `username` | `` | Username MQTT |
+| `password` | `` | Password MQTT |
+| `topic` | `` | Topic untuk publish data |
 
 ## 🚀 Penggunaan
 
