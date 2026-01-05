@@ -118,17 +118,17 @@ class HOGDetector:
     Much faster than deep learning models, ideal for Raspberry Pi.
     """
     
-    def __init__(self, conf: float = 0.3, nms_threshold: float = 0.4, 
-                 scale: float = 1.05, **kwargs):
+    def __init__(self, conf: float = 0.0, nms_threshold: float = 0.3, 
+                 scale: float = 1.03, **kwargs):
         """
         Initialize HOG detector.
         
         Args:
-            conf: Confidence threshold (weight threshold)
+            conf: Confidence threshold (weight threshold) - lower = more detections
             nms_threshold: Non-maximum suppression threshold
-            scale: Scale factor for multi-scale detection
+            scale: Scale factor for multi-scale detection (lower = more scales, slower)
         """
-        self.conf = conf
+        self.conf = conf  # HOG weights can be negative, so 0.0 is reasonable
         self.nms_threshold = nms_threshold
         self.scale = scale
         
@@ -155,20 +155,25 @@ class HOGDetector:
         """
         h, w = frame.shape[:2]
         
-        # Resize for faster processing (HOG works well with smaller images)
-        scale_factor = 1.0
-        if w > 400:
-            scale_factor = 400.0 / w
-            small_frame = cv2.resize(frame, (0, 0), fx=scale_factor, fy=scale_factor)
+        # HOG needs minimum resolution - don't downscale too much
+        # Minimum window size is 64x128, so frame should be at least 400px wide
+        min_width = 400
+        if w < min_width:
+            scale_factor = min_width / w
+            process_frame = cv2.resize(frame, (0, 0), fx=scale_factor, fy=scale_factor)
         else:
-            small_frame = frame
+            scale_factor = 1.0
+            process_frame = frame
         
-        # Detect people
+        ph, pw = process_frame.shape[:2]
+        
+        # Detect people with adjusted parameters for better detection
         rects, weights = self.hog.detectMultiScale(
-            small_frame,
-            winStride=(8, 8),
-            padding=(4, 4),
-            scale=self.scale
+            process_frame,
+            winStride=(4, 4),      # Smaller stride = more detections, slower
+            padding=(8, 8),        # More padding helps edge detection
+            scale=self.scale,
+            useMeanshiftGrouping=False
         )
         
         boxes = []
