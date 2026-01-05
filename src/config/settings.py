@@ -23,8 +23,8 @@ LOGS_DIR.mkdir(exist_ok=True)
 # ------------------------
 # MODEL CONFIGURATION
 # ------------------------
-# Detector type: "hog" (fastest, ~10-15 FPS on Pi) or "mobilenet" (more accurate, ~3-5 FPS on Pi)
-DETECTOR_TYPE = os.getenv("DETECTOR_TYPE", "hog").lower()
+# Detector type: "tflite" (fastest on RPi), "mobilenet", or "hog"
+DETECTOR_TYPE = os.getenv("DETECTOR_TYPE", "tflite").lower()
 
 # MobileNet-SSD settings (only used if DETECTOR_TYPE=mobilenet)
 MODEL_CONFIG = os.getenv("MODEL_CONFIG", "MobileNetSSD_deploy.prototxt")

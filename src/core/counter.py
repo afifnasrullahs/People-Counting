@@ -15,7 +15,7 @@ from ..config import (
 )
 from ..stream import RTMPReader
 from ..mqtt import MQTTManager
-from .detector import PersonDetector, HOGDetector
+from .detector import PersonDetector, HOGDetector, TFLiteDetector
 from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -43,14 +43,21 @@ class PeopleCounter:
             conf: Confidence threshold
             input_size: Input size for network
             resize_to: Tuple (width, height) for frame resizing
-            detector_type: "hog" or "mobilenet"
+            detector_type: "tflite", "mobilenet", or "hog"
         """
         self.source = source
         self.resize_to = resize_to
 
         # Initialize detector based on type
-        if detector_type == "hog":
-            logger.info("Using HOG detector (optimized for Raspberry Pi)")
+        if detector_type == "tflite":
+            logger.info("Using TFLite detector (optimized for Raspberry Pi, ~8-15 FPS)")
+            try:
+                self.detector = TFLiteDetector(conf=conf)
+            except Exception as e:
+                logger.warning(f"TFLite failed: {e}, falling back to MobileNet-SSD")
+                self.detector = PersonDetector(model_config, model_weights, conf, input_size)
+        elif detector_type == "hog":
+            logger.info("Using HOG detector")
             self.detector = HOGDetector(conf=conf)
         else:
             logger.info("Using MobileNet-SSD detector")

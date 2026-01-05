@@ -1,6 +1,6 @@
 # Entrance Detection System Dependencies
 
-# Core ML - MobileNet-SSD uses OpenCV DNN (no extra dependencies needed)
+# Core ML
 numpy>=1.21.0
 
 # Video Processing
@@ -11,3 +11,7 @@ paho-mqtt>=1.6.0
 
 # Environment Variables
 python-dotenv>=1.0.0
+
+# TensorFlow Lite (for Raspberry Pi - much faster inference)
+# On Raspberry Pi, install: pip install tflite-runtime
+# On PC for testing: pip install tensorflow
