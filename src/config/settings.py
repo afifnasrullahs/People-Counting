@@ -23,11 +23,17 @@ LOGS_DIR.mkdir(exist_ok=True)
 # ------------------------
 # MODEL CONFIGURATION
 # ------------------------
-MODEL_CONFIG = os.getenv("MODEL_CONFIG")
-MODEL_WEIGHTS = os.getenv("MODEL_WEIGHTS")
-MODEL_CONFIG_PATH = MODELS_DIR / MODEL_CONFIG if (MODELS_DIR / MODEL_CONFIG).exists() else MODEL_CONFIG
-MODEL_WEIGHTS_PATH = MODELS_DIR / MODEL_WEIGHTS if (MODELS_DIR / MODEL_WEIGHTS).exists() else MODEL_WEIGHTS
-CONF_THRESHOLD = float(os.getenv("CONF_THRESHOLD"))
+# Detector type: "hog" (fastest, ~10-15 FPS on Pi) or "mobilenet" (more accurate, ~3-5 FPS on Pi)
+DETECTOR_TYPE = os.getenv("DETECTOR_TYPE", "hog").lower()
+
+# MobileNet-SSD settings (only used if DETECTOR_TYPE=mobilenet)
+MODEL_CONFIG = os.getenv("MODEL_CONFIG", "MobileNetSSD_deploy.prototxt")
+MODEL_WEIGHTS = os.getenv("MODEL_WEIGHTS", "MobileNetSSD_deploy.caffemodel")
+MODEL_CONFIG_PATH = MODELS_DIR / MODEL_CONFIG if MODEL_CONFIG and (MODELS_DIR / MODEL_CONFIG).exists() else MODEL_CONFIG
+MODEL_WEIGHTS_PATH = MODELS_DIR / MODEL_WEIGHTS if MODEL_WEIGHTS and (MODELS_DIR / MODEL_WEIGHTS).exists() else MODEL_WEIGHTS
+
+# Detection settings
+CONF_THRESHOLD = float(os.getenv("CONF_THRESHOLD", "0.5"))
 INPUT_SIZE = (300, 300)  # MobileNet-SSD input size
 
 # ------------------------
@@ -45,9 +51,15 @@ LINE_POSITION = float(os.getenv("LINE_POSITION"))  # fraction of frame width (0.
 # ------------------------
 # RESIZE CONFIGURATION
 # ------------------------
-RESIZE_WIDTH = int(os.getenv("RESIZE_WIDTH"))
-RESIZE_HEIGHT = int(os.getenv("RESIZE_HEIGHT"))
+RESIZE_WIDTH = int(os.getenv("RESIZE_WIDTH", "640"))  # Default 640 for Raspberry Pi
+RESIZE_HEIGHT = int(os.getenv("RESIZE_HEIGHT", "480"))  # Default 480 for Raspberry Pi
 RESIZE_TO = (RESIZE_WIDTH, RESIZE_HEIGHT) if RESIZE_WIDTH > 0 and RESIZE_HEIGHT > 0 else None
+
+# ------------------------
+# RASPBERRY PI / HEADLESS MODE
+# ------------------------
+HEADLESS = os.getenv("HEADLESS", "false").lower() in ("true", "1", "yes")
+FRAME_SKIP = int(os.getenv("FRAME_SKIP", "2"))  # Process every Nth frame (1 = no skip)
 
 # ------------------------
 # TRACKING CONFIGURATION

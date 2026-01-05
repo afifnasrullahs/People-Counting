@@ -10,11 +10,12 @@ from ..config import (
     MODEL_CONFIG_PATH, MODEL_WEIGHTS_PATH, CONF_THRESHOLD, INPUT_SIZE,
     RESIZE_TO, LINE_POSITION, SMOOTH_ALPHA, HISTORY_MAX,
     MIN_HISTORY_TO_COUNT, DEBOUNCE_SEC, RECOUNT_TIMEOUT_SEC,
-    MIN_MOVEMENT_PIXELS, INFO_PANEL_POS, WINDOW_NAME, MQTT_CONFIG
+    MIN_MOVEMENT_PIXELS, INFO_PANEL_POS, WINDOW_NAME, MQTT_CONFIG,
+    HEADLESS, FRAME_SKIP, DETECTOR_TYPE
 )
 from ..stream import RTMPReader
 from ..mqtt import MQTTManager
-from .detector import PersonDetector
+from .detector import PersonDetector, HOGDetector
 from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -30,7 +31,8 @@ class PeopleCounter:
                  model_weights=MODEL_WEIGHTS_PATH,
                  conf=CONF_THRESHOLD,
                  input_size=INPUT_SIZE,
-                 resize_to=RESIZE_TO):
+                 resize_to=RESIZE_TO,
+                 detector_type=DETECTOR_TYPE):
         """
         Initialize People Counter.
         
@@ -41,12 +43,18 @@ class PeopleCounter:
             conf: Confidence threshold
             input_size: Input size for network
             resize_to: Tuple (width, height) for frame resizing
+            detector_type: "hog" or "mobilenet"
         """
         self.source = source
         self.resize_to = resize_to
 
-        # Initialize detector
-        self.detector = PersonDetector(model_config, model_weights, conf, input_size)
+        # Initialize detector based on type
+        if detector_type == "hog":
+            logger.info("Using HOG detector (optimized for Raspberry Pi)")
+            self.detector = HOGDetector(conf=conf)
+        else:
+            logger.info("Using MobileNet-SSD detector")
+            self.detector = PersonDetector(model_config, model_weights, conf, input_size)
 
         # Tracking & counting state
         self.track_history = defaultdict(lambda: deque(maxlen=HISTORY_MAX))
@@ -206,16 +214,20 @@ class PeopleCounter:
 
     def run(self):
         """Main run loop."""
-        # Wait for first frame
-        logger.info("Waiting for first frame...")
+        # Wait for first frame with longer timeout for Raspberry Pi
+        logger.info("Waiting for first frame (this may take up to 60 seconds)...")
         t0 = time.time()
         while True:
             ret, frame, ts = self.reader.read()
             if ret and frame is not None:
+                logger.info("First frame received!")
                 break
-            if time.time() - t0 > 15.0:
-                raise RuntimeError("Timeout waiting for initial frame from source")
-            time.sleep(0.1)
+            elapsed = time.time() - t0
+            if elapsed > 60.0:  # Increased timeout to 60 seconds
+                raise RuntimeError("Timeout waiting for initial frame from source. Check VIDEO_SOURCE URL and network connection.")
+            if int(elapsed) % 10 == 0 and int(elapsed) > 0:
+                logger.info(f"Still waiting for frame... ({int(elapsed)}s)")
+            time.sleep(0.5)
 
         original_h, original_w = frame.shape[:2]
         if self.resize_to is not None:
@@ -225,13 +237,21 @@ class PeopleCounter:
 
         line_x = int(self.rw * LINE_POSITION)
         logger.info(f"Line vertical X = {line_x} (frame width {self.rw})")
+        logger.info(f"Headless mode: {HEADLESS}, Frame skip: {FRAME_SKIP}")
 
         prev_time = time.time()
+        frame_count = 0
 
         while True:
             ret, frame, ts = self.reader.read()
             if not ret or frame is None:
                 time.sleep(0.01)
+                continue
+
+            frame_count += 1
+            
+            # Skip frames for performance (Raspberry Pi optimization)
+            if FRAME_SKIP > 1 and frame_count % FRAME_SKIP != 0:
                 continue
 
             if self.resize_to is not None:
@@ -245,24 +265,35 @@ class PeopleCounter:
                 frame = self.process_detections(boxes, ids, frame, line_x)
                 self.cleanup_stale_tracks()
 
-            # Draw UI elements
-            cv2.line(frame, (line_x, 0), (line_x, self.rh), (0, 255, 0), 3)
-            frame = self.draw_info_panel(frame)
+            # Only render UI if not headless
+            if not HEADLESS:
+                # Draw UI elements
+                cv2.line(frame, (line_x, 0), (line_x, self.rh), (0, 255, 0), 3)
+                frame = self.draw_info_panel(frame)
 
-            # FPS
-            now_time = time.time()
-            fps = 1.0 / (now_time - prev_time) if now_time - prev_time > 0 else 0.0
-            prev_time = now_time
-            cv2.putText(frame, f"FPS: {fps:.1f}", (self.rw - 160, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+                # FPS
+                now_time = time.time()
+                fps = 1.0 / (now_time - prev_time) if now_time - prev_time > 0 else 0.0
+                prev_time = now_time
+                cv2.putText(frame, f"FPS: {fps:.1f}", (self.rw - 160, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
 
-            cv2.imshow(WINDOW_NAME, frame)
-            key = cv2.waitKey(1) & 0xFF
-            if key == ord("q"):
-                break
-            elif key == ord("r"):
-                self.reset_counters()
+                cv2.imshow(WINDOW_NAME, frame)
+                key = cv2.waitKey(1) & 0xFF
+                if key == ord("q"):
+                    break
+                elif key == ord("r"):
+                    self.reset_counters()
+            else:
+                # Headless mode - just log periodically
+                now_time = time.time()
+                if now_time - prev_time >= 5.0:  # Log every 5 seconds
+                    fps = frame_count / (now_time - prev_time) if now_time - prev_time > 0 else 0.0
+                    logger.info(f"Status: IN={self.people_in}, OUT={self.people_out}, INSIDE={self.people_inside}, FPS={fps:.1f}")
+                    prev_time = now_time
+                    frame_count = 0
 
         # Cleanup
         self.reader.stop()
         self.mqtt_manager.close()
-        cv2.destroyAllWindows()
+        if not HEADLESS:
+            cv2.destroyAllWindows()
