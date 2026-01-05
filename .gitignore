@@ -32,11 +32,12 @@ env/
 .venv/
 .ENV/
 
-# YOLO model weights (large files)
+# Model weights (large files)
 *.pt
 *.onnx
 *.engine
 *.trt
+*.caffemodel
 
 # IDE
 .vscode/

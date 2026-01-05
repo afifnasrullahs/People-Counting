@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
 Entrance Detection System - Main Entry Point
-People counter using YOLO detection and MQTT publishing.
+People counter using MobileNet-SSD detection and MQTT publishing.
 """
 from src.config import (
-    VIDEO_SOURCE, MODEL_PATH, TRACKER_YAML,
-    CONF_THRESHOLD, IOU_THRESHOLD, RESIZE_TO,
+    VIDEO_SOURCE, MODEL_CONFIG_PATH, MODEL_WEIGHTS_PATH,
+    CONF_THRESHOLD, INPUT_SIZE, RESIZE_TO,
     LOG_LEVEL, LOG_FILE
 )
 from src.core import PeopleCounter
@@ -22,17 +22,18 @@ def main():
     logger.info("Entrance Detection System Starting...")
     logger.info("=" * 50)
     logger.info(f"Video Source: {VIDEO_SOURCE}")
-    logger.info(f"Model: {MODEL_PATH}")
-    logger.info(f"Confidence: {CONF_THRESHOLD}, IOU: {IOU_THRESHOLD}")
+    logger.info(f"Model Config: {MODEL_CONFIG_PATH}")
+    logger.info(f"Model Weights: {MODEL_WEIGHTS_PATH}")
+    logger.info(f"Confidence: {CONF_THRESHOLD}")
     logger.info(f"Resize: {RESIZE_TO}")
     logger.info("=" * 50)
     
     pc = PeopleCounter(
         VIDEO_SOURCE,
-        model_weights=MODEL_PATH,
-        tracker_yaml=TRACKER_YAML,
+        model_config=MODEL_CONFIG_PATH,
+        model_weights=MODEL_WEIGHTS_PATH,
         conf=CONF_THRESHOLD,
-        iou=IOU_THRESHOLD,
+        input_size=INPUT_SIZE,
         resize_to=RESIZE_TO
     )
     

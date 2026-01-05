@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 
 from ..config import (
-    MODEL_PATH, TRACKER_YAML, CONF_THRESHOLD, IOU_THRESHOLD,
+    MODEL_CONFIG_PATH, MODEL_WEIGHTS_PATH, CONF_THRESHOLD, INPUT_SIZE,
     RESIZE_TO, LINE_POSITION, SMOOTH_ALPHA, HISTORY_MAX,
     MIN_HISTORY_TO_COUNT, DEBOUNCE_SEC, RECOUNT_TIMEOUT_SEC,
     MIN_MOVEMENT_PIXELS, INFO_PANEL_POS, WINDOW_NAME, MQTT_CONFIG
@@ -26,27 +26,27 @@ class PeopleCounter:
     """
     
     def __init__(self, source: str, *,
-                 model_weights=MODEL_PATH,
-                 tracker_yaml=TRACKER_YAML,
+                 model_config=MODEL_CONFIG_PATH,
+                 model_weights=MODEL_WEIGHTS_PATH,
                  conf=CONF_THRESHOLD,
-                 iou=IOU_THRESHOLD,
+                 input_size=INPUT_SIZE,
                  resize_to=RESIZE_TO):
         """
         Initialize People Counter.
         
         Args:
             source: Video source URL
-            model_weights: Path to YOLO model
-            tracker_yaml: Tracker configuration file
+            model_config: Path to MobileNet-SSD config
+            model_weights: Path to MobileNet-SSD weights
             conf: Confidence threshold
-            iou: IOU threshold
+            input_size: Input size for network
             resize_to: Tuple (width, height) for frame resizing
         """
         self.source = source
         self.resize_to = resize_to
 
         # Initialize detector
-        self.detector = PersonDetector(model_weights, tracker_yaml, conf, iou)
+        self.detector = PersonDetector(model_config, model_weights, conf, input_size)
 
         # Tracking & counting state
         self.track_history = defaultdict(lambda: deque(maxlen=HISTORY_MAX))

@@ -23,11 +23,12 @@ LOGS_DIR.mkdir(exist_ok=True)
 # ------------------------
 # MODEL CONFIGURATION
 # ------------------------
-MODEL_WEIGHTS = os.getenv("MODEL_WEIGHTS", "yolov8s.pt")
-MODEL_PATH = MODELS_DIR / MODEL_WEIGHTS if (MODELS_DIR / MODEL_WEIGHTS).exists() else MODEL_WEIGHTS
-TRACKER_YAML = os.getenv("TRACKER_YAML", "botsort.yaml")
-CONF_THRESHOLD = float(os.getenv("CONF_THRESHOLD", "0.35"))
-IOU_THRESHOLD = float(os.getenv("IOU_THRESHOLD", "0.5"))
+MODEL_CONFIG = os.getenv("MODEL_CONFIG")
+MODEL_WEIGHTS = os.getenv("MODEL_WEIGHTS")
+MODEL_CONFIG_PATH = MODELS_DIR / MODEL_CONFIG if (MODELS_DIR / MODEL_CONFIG).exists() else MODEL_CONFIG
+MODEL_WEIGHTS_PATH = MODELS_DIR / MODEL_WEIGHTS if (MODELS_DIR / MODEL_WEIGHTS).exists() else MODEL_WEIGHTS
+CONF_THRESHOLD = float(os.getenv("CONF_THRESHOLD"))
+INPUT_SIZE = (300, 300)  # MobileNet-SSD input size
 
 # ------------------------
 # VIDEO SOURCE
@@ -39,24 +40,24 @@ if not VIDEO_SOURCE:
 # ------------------------
 # DETECTION LINE
 # ------------------------
-LINE_POSITION = float(os.getenv("LINE_POSITION", "0.5"))  # fraction of frame width (0..1)
+LINE_POSITION = float(os.getenv("LINE_POSITION"))  # fraction of frame width (0..1)
 
 # ------------------------
 # RESIZE CONFIGURATION
 # ------------------------
-RESIZE_WIDTH = int(os.getenv("RESIZE_WIDTH", "960"))
-RESIZE_HEIGHT = int(os.getenv("RESIZE_HEIGHT", "540"))
+RESIZE_WIDTH = int(os.getenv("RESIZE_WIDTH"))
+RESIZE_HEIGHT = int(os.getenv("RESIZE_HEIGHT"))
 RESIZE_TO = (RESIZE_WIDTH, RESIZE_HEIGHT) if RESIZE_WIDTH > 0 and RESIZE_HEIGHT > 0 else None
 
 # ------------------------
 # TRACKING CONFIGURATION
 # ------------------------
-SMOOTH_ALPHA = float(os.getenv("SMOOTH_ALPHA", "0.3"))  # new_position = old*(1-alpha) + new*alpha
-HISTORY_MAX = int(os.getenv("HISTORY_MAX", "80"))  # max stored positions per track id
-MIN_HISTORY_TO_COUNT = int(os.getenv("MIN_HISTORY_TO_COUNT", "3"))  # min history length to consider counting
-DEBOUNCE_SEC = float(os.getenv("DEBOUNCE_SEC", "0.6"))  # minimal seconds between counts for same id
-RECOUNT_TIMEOUT_SEC = float(os.getenv("RECOUNT_TIMEOUT_SEC", "10.0"))  # after this seconds, same ID may be counted again
-MIN_MOVEMENT_PIXELS = int(os.getenv("MIN_MOVEMENT_PIXELS", "15"))  # minimum movement to consider real crossing
+SMOOTH_ALPHA = float(os.getenv("SMOOTH_ALPHA"))  # new_position = old*(1-alpha) + new*alpha
+HISTORY_MAX = int(os.getenv("HISTORY_MAX"))  # max stored positions per track id
+MIN_HISTORY_TO_COUNT = int(os.getenv("MIN_HISTORY_TO_COUNT"))  # min history length to consider counting
+DEBOUNCE_SEC = float(os.getenv("DEBOUNCE_SEC"))  # minimal seconds between counts for same id
+RECOUNT_TIMEOUT_SEC = float(os.getenv("RECOUNT_TIMEOUT_SEC"))  # after this seconds, same ID may be counted again
+MIN_MOVEMENT_PIXELS = int(os.getenv("MIN_MOVEMENT_PIXELS"))  # minimum movement to consider real crossing
 
 # ------------------------
 # VISUAL / UI
@@ -76,11 +77,11 @@ if not MQTT_BROKER:
 
 MQTT_CONFIG = {
     "broker": MQTT_BROKER,
-    "port": int(os.getenv("MQTT_PORT", "1883")),
+    "port": int(os.getenv("MQTT_PORT")),
     "username": MQTT_USERNAME,
     "password": MQTT_PASSWORD,
-    "topic": os.getenv("MQTT_TOPIC", "entrance/device-1/data"),
-    "client_id": os.getenv("MQTT_CLIENT_ID", "entrance_detection_client")
+    "topic": os.getenv("MQTT_TOPIC"),
+    "client_id": os.getenv("MQTT_CLIENT_ID")
 }
 
 # ------------------------

@@ -1,7 +1,6 @@
 # Entrance Detection System Dependencies
 
-# Core ML
-ultralytics>=8.0.0
+# Core ML - MobileNet-SSD uses OpenCV DNN (no extra dependencies needed)
 numpy>=1.21.0
 
 # Video Processing
@@ -12,7 +11,3 @@ paho-mqtt>=1.6.0
 
 # Environment Variables
 python-dotenv>=1.0.0
-
-# Optional: GPU Support (uncomment if using CUDA)
-# torch>=2.0.0
-# torchvision>=0.15.0

@@ -1,20 +1,20 @@
 # Entrance Detection - People Counter
 
-Sistem pendeteksi dan penghitung orang yang masuk/keluar menggunakan YOLO dan MQTT.
+Sistem pendeteksi dan penghitung orang yang masuk/keluar menggunakan MobileNet-SSD dan MQTT.
 
 ## 📋 Fitur
 
-- **Deteksi Real-time**: Menggunakan YOLOv8 untuk mendeteksi orang
-- **Tracking**: Menggunakan BotSORT untuk melacak pergerakan setiap orang
+- **Deteksi Real-time**: Menggunakan MobileNet-SSD untuk mendeteksi orang
+- **Tracking**: Menggunakan centroid-based tracker untuk melacak pergerakan setiap orang
 - **Counting**: Menghitung orang yang masuk (MASUK) dan keluar (KELUAR)
 - **MQTT Integration**: Mengirim data occupancy ke broker MQTT
 - **RTSP/RTMP Support**: Mendukung stream video dari IP camera
+- **Lightweight**: Tidak memerlukan GPU, berjalan efisien di CPU
 
 ## 🛠️ Requirements
 
 - Python 3.8+
-- OpenCV
-- Ultralytics (YOLOv8)
+- OpenCV (dengan modul DNN)
 - Paho MQTT Client
 - NumPy
 
@@ -44,13 +44,18 @@ Sistem pendeteksi dan penghitung orang yang masuk/keluar menggunakan YOLO dan MQ
 
    Atau manual:
 
-4. **Download model weights**
+4. **Download model MobileNet-SSD**
    
-   Model YOLOv8 akan otomatis didownload saat pertama kali dijalankan, atau download manual:
-   - [yolov8n.pt](https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8n.pt) - Nano (tercepat)
-   - [yolov8s.pt](https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8s.pt) - Small (default)
-   - [yolov8m.pt](https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8m.pt) - Medium
-   - [yolov8l.pt](https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8l.pt) - Large (paling akurat)
+   Jalankan script untuk mendownload model:
+   ```bash
+   python download_model.py
+   ```
+   
+   Atau download manual:
+   - [MobileNetSSD_deploy.prototxt](https://raw.githubusercontent.com/chuanqi305/MobileNet-SSD/master/deploy.prototxt) - Config file
+   - [MobileNetSSD_deploy.caffemodel](https://github.com/chuanqi305/MobileNet-SSD/raw/master/mobilenet_iter_73000.caffemodel) - Weights file
+   
+   Letakkan file di folder `models/`
 
 5. **Konfigurasi environment**
    
@@ -66,8 +71,9 @@ Edit file `final.py` atau buat file `.env` untuk mengubah konfigurasi:
 | Parameter | Default | Deskripsi |
 |-----------|---------|-----------|
 | `VIDEO_SOURCE` | RTSP URL | Sumber video (RTSP/RTMP/file/webcam) |
-| `MODEL_WEIGHTS` | `yolov8s.pt` | Model YOLO yang digunakan |
-| `CONF_THRESHOLD` | `0.35` | Confidence threshold deteksi |
+| `MODEL_CONFIG` | `MobileNetSSD_deploy.prototxt` | Config file MobileNet-SSD |
+| `MODEL_WEIGHTS` | `MobileNetSSD_deploy.caffemodel` | Weights file MobileNet-SSD |
+| `CONF_THRESHOLD` | `0.5` | Confidence threshold deteksi |
 | `LINE_POSITION` | `0.5` | Posisi garis vertikal (0-1) |
 | `RESIZE_TO` | `(960, 540)` | Resolusi frame untuk processing |
 
@@ -83,14 +89,8 @@ Edit file `final.py` atau buat file `.env` untuk mengubah konfigurasi:
 
 ## 🚀 Penggunaan
 
-**Cara baru (modular):**
 ```bash
 python main.py
-```
-
-**Cara lama (monolithic):**
-```bash
-python final.py
 ```
 
 ### Keyboard Controls
@@ -123,9 +123,8 @@ python final.py
 - Pastikan firewall tidak memblokir koneksi
 
 ### FPS rendah
-- Gunakan model yang lebih ringan (`yolov8n.pt`)
-- Kurangi resolusi (`RESIZE_TO`)
-- Pastikan GPU tersedia dan CUDA terinstall
+- Kurangi resolusi (`RESIZE_WIDTH`, `RESIZE_HEIGHT`)
+- Pastikan tidak ada proses berat lain berjalan
 
 ### Counting tidak akurat
 - Sesuaikan `LINE_POSITION` sesuai posisi pintu
@@ -142,9 +141,10 @@ python final.py
 ```
 EntranceDetection/
 ├── main.py                 # Entry point aplikasi
-├── final.py                # Legacy monolithic version
+├── download_model.py       # Script download model
 ├── requirements.txt        # Python dependencies
 ├── .env                    # Environment variables (tidak di-commit)
+├── .env.example            # Template environment variables
 ├── .gitignore              # Git ignore rules
 ├── README.md               # Dokumentasi
 │
@@ -157,7 +157,7 @@ EntranceDetection/
 │   ├── core/               # Logic inti
 │   │   ├── __init__.py
 │   │   ├── counter.py      # PeopleCounter class
-│   │   └── detector.py     # YOLO detector wrapper
+│   │   └── detector.py     # MobileNet-SSD detector
 │   │
 │   ├── mqtt/               # MQTT handling
 │   │   ├── __init__.py
@@ -171,8 +171,9 @@ EntranceDetection/
 │       ├── __init__.py
 │       └── logger.py       # Logging configuration
 │
-├── models/                 # YOLO model weights
-│   └── .gitkeep
+├── models/                 # Model files
+│   ├── MobileNetSSD_deploy.prototxt
+│   └── MobileNetSSD_deploy.caffemodel
 │
 ├── logs/                   # Log files
 │   └── .gitkeep
