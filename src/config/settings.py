@@ -23,12 +23,12 @@ LOGS_DIR.mkdir(exist_ok=True)
 # ------------------------
 # MODEL CONFIGURATION
 # ------------------------
-# Detector types:
-# - "yolov8_rpi" or "yolov8n": Optimized for Raspberry Pi (10+ FPS)
-# - "yolov8_lite": Ultra-lightweight OpenCV DNN (fastest, needs ONNX model)
-# - "yolov8": Standard YOLOv8s (slow on RPi, ~1 FPS)
-# - "yolov8_onnx": YOLOv8 with ONNX runtime
-DETECTOR_TYPE = os.getenv("DETECTOR_TYPE", "yolov8_rpi").lower()
+# Detector types (sorted by speed on RPi4):
+# - "lite": YOLOv8n with frame skipping (fastest, 10-15 FPS)
+# - "openvino": OpenVINO optimized (8-12 FPS)
+# - "yolov8_rpi": YOLOv8n standard (5-8 FPS)
+# - "yolov8": Standard YOLOv8s (slow, ~1-2 FPS)
+DETECTOR_TYPE = os.getenv("DETECTOR_TYPE", "lite").lower()
 
 # YOLOv8 settings
 YOLO_MODEL = os.getenv("YOLO_MODEL", "yolov8n.pt")  # yolov8n.pt recommended for RPi

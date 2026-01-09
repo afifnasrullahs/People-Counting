@@ -88,6 +88,17 @@ def main():
         action="store_true",
         help="Also export to ONNX format (recommended for RPi)"
     )
+    parser.add_argument(
+        "--export-openvino",
+        action="store_true", 
+        help="Export to OpenVINO format (requires openvino-dev)"
+    )
+    parser.add_argument(
+        "--imgsz",
+        type=int,
+        default=256,
+        help="Export image size (256 recommended for RPi speed)"
+    )
     
     args = parser.parse_args()
     
@@ -110,14 +121,27 @@ def main():
     # Export to ONNX if requested
     if args.export_onnx:
         print()
-        print("Exporting to ONNX format...")
+        print(f"Exporting to ONNX format (imgsz={args.imgsz})...")
         try:
             from ultralytics import YOLO
             model = YOLO(str(model_path))
-            onnx_path = model.export(format="onnx", imgsz=320, simplify=True)
+            onnx_path = model.export(format="onnx", imgsz=args.imgsz, simplify=True)
             print(f"ONNX model exported to: {onnx_path}")
         except Exception as e:
             print(f"ONNX export failed: {e}")
+    
+    # Export to OpenVINO if requested
+    if args.export_openvino:
+        print()
+        print(f"Exporting to OpenVINO format (imgsz={args.imgsz})...")
+        try:
+            from ultralytics import YOLO
+            model = YOLO(str(model_path))
+            ov_path = model.export(format="openvino", imgsz=args.imgsz, half=False)
+            print(f"OpenVINO model exported to: {ov_path}")
+        except Exception as e:
+            print(f"OpenVINO export failed: {e}")
+            print("Install with: pip install openvino-dev")
 
 
 if __name__ == "__main__":

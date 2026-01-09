@@ -331,14 +331,21 @@ class Sort:
         for trk in reversed(self.trackers):
             d = trk.get_state()[0]
             
-            # Show track if:
-            # 1. It was updated this frame (time_since_update < 1), OR
-            # 2. It has enough hits and hasn't been missing for too long
-            # This prevents flickering by showing tracks more consistently
-            if (trk.time_since_update < 1) and (trk.hit_streak >= self.min_hits or self.frame_count <= self.min_hits):
-                ret.append(np.concatenate((d, [trk.id + 1])).reshape(1, -1))
-            elif (trk.time_since_update <= 3) and (trk.hits >= self.min_hits):
-                # Also show recently lost tracks to prevent flickering
+            # More lenient track display to prevent flickering:
+            # 1. Show if updated recently (within last 2 frames)
+            # 2. Show if it has any hits and wasn't missing too long
+            should_show = False
+            
+            if trk.time_since_update < 2:
+                # Recently updated - show if has enough hits or is new
+                if trk.hit_streak >= self.min_hits or self.frame_count <= self.min_hits + 2:
+                    should_show = True
+            
+            if trk.time_since_update <= 5 and trk.hits >= 1:
+                # Lost but was established - keep showing with prediction
+                should_show = True
+            
+            if should_show:
                 ret.append(np.concatenate((d, [trk.id + 1])).reshape(1, -1))
             
             i -= 1

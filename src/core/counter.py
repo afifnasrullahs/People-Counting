@@ -16,6 +16,7 @@ from ..stream import RTMPReader
 from ..mqtt import MQTTManager
 from .yolo_detector import YOLOv8Detector, YOLOv8DetectorONNX
 from .yolo_rpi import YOLOv8DetectorRPi, YOLOv8DetectorLite
+from .yolo_openvino import YOLOv8OpenVINO, YOLOv8UltralyticsLite
 from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -43,7 +44,27 @@ class PeopleCounter:
         self.resize_to = resize_to
 
         # Initialize detector based on type
-        if detector_type == "yolov8_rpi" or detector_type == "yolov8n":
+        if detector_type == "openvino":
+            # OpenVINO optimized (best for Intel, works on ARM too)
+            logger.info("Using OpenVINO detector (optimized inference)")
+            try:
+                self.detector = YOLOv8OpenVINO(
+                    conf=conf,
+                    input_size=256,
+                    skip_detection=2
+                )
+            except Exception as e:
+                logger.warning(f"OpenVINO failed: {e}, trying ultralytics lite")
+                self.detector = YOLOv8UltralyticsLite(conf=conf, input_size=256)
+        elif detector_type == "yolov8_lite" or detector_type == "lite":
+            # Ultralytics with aggressive optimizations
+            logger.info("Using YOLOv8 Lite detector")
+            self.detector = YOLOv8UltralyticsLite(
+                conf=conf,
+                input_size=256,
+                skip_detection=2
+            )
+        elif detector_type == "yolov8_rpi" or detector_type == "yolov8n":
             # Optimized for Raspberry Pi - uses YOLOv8n with smaller input
             logger.info("Using YOLOv8n RPi-optimized detector (target: 10+ FPS)")
             try:

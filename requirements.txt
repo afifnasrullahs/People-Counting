@@ -3,7 +3,7 @@
 # Core ML
 numpy>=1.21.0
 
-# Video Processing
+# Video Processing  
 opencv-python>=4.5.0
 
 # MQTT
@@ -19,9 +19,8 @@ ultralytics>=8.0.0
 filterpy>=1.4.5
 scipy>=1.7.0
 
-# Optional: ONNX Runtime (for edge deployment without ultralytics)
-# pip install onnxruntime
+# Optional: OpenVINO for optimized inference on RPi
+# pip install openvino-dev
 
-# TensorFlow Lite (for Raspberry Pi - alternative detector)
-# On Raspberry Pi, install: pip install tflite-runtime
-# On PC for testing: pip install tensorflow
+# Optional: ONNX Runtime (alternative to OpenVINO)
+# pip install onnxruntime
