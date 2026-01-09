@@ -23,16 +23,20 @@ LOGS_DIR.mkdir(exist_ok=True)
 # ------------------------
 # MODEL CONFIGURATION
 # ------------------------
-# Detector type: "yolov8" (recommended) or "yolov8_onnx" (for edge deployment)
-DETECTOR_TYPE = os.getenv("DETECTOR_TYPE", "yolov8").lower()
+# Detector types:
+# - "yolov8_rpi" or "yolov8n": Optimized for Raspberry Pi (10+ FPS)
+# - "yolov8_lite": Ultra-lightweight OpenCV DNN (fastest, needs ONNX model)
+# - "yolov8": Standard YOLOv8s (slow on RPi, ~1 FPS)
+# - "yolov8_onnx": YOLOv8 with ONNX runtime
+DETECTOR_TYPE = os.getenv("DETECTOR_TYPE", "yolov8_rpi").lower()
 
 # YOLOv8 settings
-YOLO_MODEL = os.getenv("YOLO_MODEL", "yolov8s.pt")  # yolov8n.pt, yolov8s.pt, yolov8m.pt
-YOLO_DEVICE = os.getenv("YOLO_DEVICE", "auto")  # "cpu", "cuda", or "auto"
+YOLO_MODEL = os.getenv("YOLO_MODEL", "yolov8n.pt")  # yolov8n.pt recommended for RPi
+YOLO_DEVICE = os.getenv("YOLO_DEVICE", "cpu")  # Always CPU for RPi
 YOLO_MODEL_PATH = MODELS_DIR / YOLO_MODEL if YOLO_MODEL else None
 
 # Detection settings
-CONF_THRESHOLD = float(os.getenv("CONF_THRESHOLD", "0.35"))  # Lower for better detection of crowded people
+CONF_THRESHOLD = float(os.getenv("CONF_THRESHOLD", "0.4"))  # Slightly higher for speed
 
 # ------------------------
 # VIDEO SOURCE

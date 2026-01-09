@@ -73,15 +73,20 @@ def main():
     parser.add_argument(
         "--model", "-m",
         type=str,
-        default="yolov8s.pt",
+        default="yolov8n.pt",
         choices=["yolov8n.pt", "yolov8s.pt", "yolov8m.pt", "yolov8l.pt", "yolov8x.pt"],
-        help="Model variant to download (default: yolov8s.pt)"
+        help="Model variant to download (default: yolov8n.pt for RPi)"
     )
     parser.add_argument(
         "--output", "-o",
         type=str,
         default=None,
         help="Output directory for the model (default: ./models)"
+    )
+    parser.add_argument(
+        "--export-onnx",
+        action="store_true",
+        help="Also export to ONNX format (recommended for RPi)"
     )
     
     args = parser.parse_args()
@@ -92,15 +97,27 @@ def main():
     print("YOLOv8 Model Downloader")
     print("=" * 50)
     print()
-    print("Available models:")
-    print("  - yolov8n.pt : Nano (fastest, least accurate)")
-    print("  - yolov8s.pt : Small (balanced) [RECOMMENDED]")
-    print("  - yolov8m.pt : Medium")
-    print("  - yolov8l.pt : Large")
-    print("  - yolov8x.pt : Extra Large (slowest, most accurate)")
+    print("Available models (for Raspberry Pi, use yolov8n):")
+    print("  - yolov8n.pt : Nano (RECOMMENDED for RPi, ~10-15 FPS)")
+    print("  - yolov8s.pt : Small (~1-3 FPS on RPi)")
+    print("  - yolov8m.pt : Medium (too slow for RPi)")
+    print("  - yolov8l.pt : Large (too slow for RPi)")
+    print("  - yolov8x.pt : Extra Large (too slow for RPi)")
     print()
     
-    download_yolov8_model(args.model, output_dir)
+    model_path = download_yolov8_model(args.model, output_dir)
+    
+    # Export to ONNX if requested
+    if args.export_onnx:
+        print()
+        print("Exporting to ONNX format...")
+        try:
+            from ultralytics import YOLO
+            model = YOLO(str(model_path))
+            onnx_path = model.export(format="onnx", imgsz=320, simplify=True)
+            print(f"ONNX model exported to: {onnx_path}")
+        except Exception as e:
+            print(f"ONNX export failed: {e}")
 
 
 if __name__ == "__main__":

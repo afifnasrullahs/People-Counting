@@ -15,6 +15,7 @@ from ..config import (
 from ..stream import RTMPReader
 from ..mqtt import MQTTManager
 from .yolo_detector import YOLOv8Detector, YOLOv8DetectorONNX
+from .yolo_rpi import YOLOv8DetectorRPi, YOLOv8DetectorLite
 from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -42,7 +43,30 @@ class PeopleCounter:
         self.resize_to = resize_to
 
         # Initialize detector based on type
-        if detector_type == "yolov8_onnx":
+        if detector_type == "yolov8_rpi" or detector_type == "yolov8n":
+            # Optimized for Raspberry Pi - uses YOLOv8n with smaller input
+            logger.info("Using YOLOv8n RPi-optimized detector (target: 10+ FPS)")
+            try:
+                self.detector = YOLOv8DetectorRPi(
+                    conf=conf,
+                    input_size=320  # Smaller input for speed
+                )
+            except Exception as e:
+                logger.warning(f"YOLOv8 RPi failed: {e}, trying standard YOLOv8")
+                self.detector = YOLOv8Detector(
+                    model_path=str(YOLO_MODEL_PATH) if YOLO_MODEL_PATH else None,
+                    conf=conf,
+                    device="cpu"
+                )
+        elif detector_type == "yolov8_lite":
+            # Ultra-lightweight using OpenCV DNN
+            logger.info("Using YOLOv8 Lite detector (OpenCV DNN)")
+            try:
+                self.detector = YOLOv8DetectorLite(conf=conf, input_size=320)
+            except Exception as e:
+                logger.warning(f"YOLOv8 Lite failed: {e}, trying RPi detector")
+                self.detector = YOLOv8DetectorRPi(conf=conf, input_size=320)
+        elif detector_type == "yolov8_onnx":
             logger.info("Using YOLOv8 ONNX detector with SORT tracking")
             try:
                 self.detector = YOLOv8DetectorONNX(conf=conf)
@@ -108,12 +132,23 @@ class PeopleCounter:
         if prev_x is None:
             return None
 
-        # Minimum movement check - prevents counting due to jitter
-        if abs(curr_x - prev_x) < MIN_MOVEMENT_PIXELS:
+        # Calculate movement direction
+        movement = curr_x - prev_x
+        
+        # Skip if no significant movement
+        if abs(movement) < 3:  # Very small threshold just to filter noise
             return None
 
-        # MASUK: left to right (crossing the line from left side to right side)
-        if prev_x < line_x and curr_x >= line_x:
+        # MASUK: left to right (crossing the line)
+        # Detect crossing: was on left side, now on right side OR very close to crossing
+        crossed_to_right = (prev_x < line_x and curr_x >= line_x)
+        # Also detect if person is moving right and passes through line area
+        near_line_moving_right = (movement > 0 and 
+                                   prev_x < line_x + 15 and 
+                                   curr_x > line_x - 15 and
+                                   curr_x > prev_x)
+        
+        if crossed_to_right or (near_line_moving_right and prev_x < line_x <= curr_x):
             # Check if same action recently to prevent double count
             if self.last_count_type.get(track_id) == "in" and now - last < RECOUNT_TIMEOUT_SEC:
                 return None
@@ -121,8 +156,14 @@ class PeopleCounter:
             self.last_count_type[track_id] = "in"
             return "in"
 
-        # KELUAR: right to left (crossing the line from right side to left side)
-        if prev_x > line_x and curr_x <= line_x:
+        # KELUAR: right to left (crossing the line)
+        crossed_to_left = (prev_x > line_x and curr_x <= line_x)
+        near_line_moving_left = (movement < 0 and
+                                  prev_x > line_x - 15 and
+                                  curr_x < line_x + 15 and
+                                  curr_x < prev_x)
+        
+        if crossed_to_left or (near_line_moving_left and prev_x > line_x >= curr_x):
             # Check if same action recently to prevent double count
             if self.last_count_type.get(track_id) == "out" and now - last < RECOUNT_TIMEOUT_SEC:
                 return None
@@ -175,13 +216,18 @@ class PeopleCounter:
 
                 self.track_history[track_id].append((display_cx, display_cy))
 
-                # Counting logic - check crossing with minimum history
-                # Use MIN_HISTORY_TO_COUNT=2 effectively (need at least prev and current)
-                min_hist = max(2, MIN_HISTORY_TO_COUNT)
-                if len(self.track_history[track_id]) >= min_hist:
-                    # Use mean of previous positions for more stable detection
-                    prev_x_mean = self.compute_mean_prev_x(self.track_history[track_id], n=2)
-                    action = self.should_count(track_id, prev_x_mean, display_cx, line_x)
+                # Counting logic - check crossing immediately
+                # Use direct previous position for responsive detection
+                if len(self.track_history[track_id]) >= 2:
+                    # Get the position from 1-2 frames ago for crossing detection
+                    hist_list = list(self.track_history[track_id])
+                    if len(hist_list) >= 3:
+                        # Use position from 2 frames ago for more reliable crossing detection
+                        prev_x = hist_list[-3][0]
+                    else:
+                        prev_x = hist_list[-2][0]
+                    
+                    action = self.should_count(track_id, prev_x, display_cx, line_x)
                     
                     if action == "in":
                         self.people_in += 1
