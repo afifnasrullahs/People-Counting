@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """
 Entrance Detection System - Main Entry Point
-People counter using HOG/MobileNet-SSD detection and MQTT publishing.
+People counter using YOLOv8 detection with SORT tracking and MQTT publishing.
 """
 from src.config import (
-    VIDEO_SOURCE, MODEL_CONFIG_PATH, MODEL_WEIGHTS_PATH,
-    CONF_THRESHOLD, INPUT_SIZE, RESIZE_TO,
+    VIDEO_SOURCE, CONF_THRESHOLD, RESIZE_TO,
     LOG_LEVEL, LOG_FILE, DETECTOR_TYPE, HEADLESS, FRAME_SKIP
 )
 from src.core import PeopleCounter
@@ -30,10 +29,7 @@ def main():
     
     pc = PeopleCounter(
         VIDEO_SOURCE,
-        model_config=MODEL_CONFIG_PATH,
-        model_weights=MODEL_WEIGHTS_PATH,
         conf=CONF_THRESHOLD,
-        input_size=INPUT_SIZE,
         resize_to=RESIZE_TO,
         detector_type=DETECTOR_TYPE
     )

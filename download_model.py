@@ -1,59 +1,106 @@
 #!/usr/bin/env python3
 """
-Download MobileNet-SSD model files for person detection.
+Download YOLOv8 model for Entrance Detection System.
+Run this script to download the model before running the main application.
 """
 import os
-import urllib.request
+import sys
 from pathlib import Path
 
-MODELS_DIR = Path(__file__).parent / "models"
-MODELS_DIR.mkdir(exist_ok=True)
 
-# MobileNet-SSD Caffe model URLs
-MODEL_FILES = {
-    "MobileNetSSD_deploy.prototxt": "https://raw.githubusercontent.com/chuanqi305/MobileNet-SSD/master/deploy.prototxt",
-    "MobileNetSSD_deploy.caffemodel": "https://github.com/chuanqi305/MobileNet-SSD/raw/master/mobilenet_iter_73000.caffemodel"
-}
-
-
-def download_file(url: str, dest: Path) -> bool:
-    """Download a file from URL to destination."""
-    if dest.exists():
-        print(f"✓ {dest.name} already exists")
-        return True
+def download_yolov8_model(model_name: str = "yolov8s.pt", models_dir: Path = None):
+    """
+    Download YOLOv8 model using ultralytics library.
     
-    print(f"Downloading {dest.name}...")
+    Args:
+        model_name: Model variant to download (yolov8n.pt, yolov8s.pt, yolov8m.pt, etc.)
+        models_dir: Directory to save the model
+    """
     try:
-        urllib.request.urlretrieve(url, dest)
-        print(f"✓ Downloaded {dest.name}")
-        return True
-    except Exception as e:
-        print(f"✗ Failed to download {dest.name}: {e}")
-        return False
+        from ultralytics import YOLO
+    except ImportError:
+        print("Error: ultralytics not installed.")
+        print("Install with: pip install ultralytics")
+        sys.exit(1)
+    
+    if models_dir is None:
+        models_dir = Path(__file__).parent / "models"
+    
+    models_dir.mkdir(exist_ok=True)
+    model_path = models_dir / model_name
+    
+    print(f"Downloading {model_name}...")
+    print(f"Save location: {model_path}")
+    print("-" * 50)
+    
+    # Load model - ultralytics will automatically download if not exists
+    model = YOLO(model_name)
+    
+    # Save to models directory
+    import shutil
+    
+    # Find where ultralytics downloaded the model
+    default_path = Path(model_name)
+    if default_path.exists():
+        shutil.move(str(default_path), str(model_path))
+        print(f"\nModel moved to: {model_path}")
+    elif model_path.exists():
+        print(f"\nModel already exists at: {model_path}")
+    else:
+        # Try to find in ultralytics cache
+        cache_dir = Path.home() / ".cache" / "ultralytics"
+        if cache_dir.exists():
+            for f in cache_dir.rglob(model_name):
+                shutil.copy(str(f), str(model_path))
+                print(f"\nModel copied from cache to: {model_path}")
+                break
+    
+    print("-" * 50)
+    print("Download complete!")
+    print(f"\nModel info:")
+    print(f"  - Name: {model_name}")
+    print(f"  - Path: {model_path}")
+    print(f"  - Size: {model_path.stat().st_size / 1024 / 1024:.1f} MB" if model_path.exists() else "")
+    
+    return model_path
 
 
 def main():
+    """Main function to download YOLOv8 model."""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Download YOLOv8 model for Entrance Detection")
+    parser.add_argument(
+        "--model", "-m",
+        type=str,
+        default="yolov8s.pt",
+        choices=["yolov8n.pt", "yolov8s.pt", "yolov8m.pt", "yolov8l.pt", "yolov8x.pt"],
+        help="Model variant to download (default: yolov8s.pt)"
+    )
+    parser.add_argument(
+        "--output", "-o",
+        type=str,
+        default=None,
+        help="Output directory for the model (default: ./models)"
+    )
+    
+    args = parser.parse_args()
+    
+    output_dir = Path(args.output) if args.output else None
+    
     print("=" * 50)
-    print("MobileNet-SSD Model Downloader")
+    print("YOLOv8 Model Downloader")
     print("=" * 50)
-    print(f"Target directory: {MODELS_DIR}")
+    print()
+    print("Available models:")
+    print("  - yolov8n.pt : Nano (fastest, least accurate)")
+    print("  - yolov8s.pt : Small (balanced) [RECOMMENDED]")
+    print("  - yolov8m.pt : Medium")
+    print("  - yolov8l.pt : Large")
+    print("  - yolov8x.pt : Extra Large (slowest, most accurate)")
     print()
     
-    success = True
-    for filename, url in MODEL_FILES.items():
-        dest = MODELS_DIR / filename
-        if not download_file(url, dest):
-            success = False
-    
-    print()
-    if success:
-        print("✓ All model files ready!")
-        print()
-        print("Update your .env file with:")
-        print("  MODEL_CONFIG=MobileNetSSD_deploy.prototxt")
-        print("  MODEL_WEIGHTS=MobileNetSSD_deploy.caffemodel")
-    else:
-        print("✗ Some files failed to download. Please try again.")
+    download_yolov8_model(args.model, output_dir)
 
 
 if __name__ == "__main__":

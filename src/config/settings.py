@@ -23,18 +23,16 @@ LOGS_DIR.mkdir(exist_ok=True)
 # ------------------------
 # MODEL CONFIGURATION
 # ------------------------
-# Detector type: "tflite" (fastest on RPi), "mobilenet", or "hog"
-DETECTOR_TYPE = os.getenv("DETECTOR_TYPE", "tflite").lower()
+# Detector type: "yolov8" (recommended) or "yolov8_onnx" (for edge deployment)
+DETECTOR_TYPE = os.getenv("DETECTOR_TYPE", "yolov8").lower()
 
-# MobileNet-SSD settings (only used if DETECTOR_TYPE=mobilenet)
-MODEL_CONFIG = os.getenv("MODEL_CONFIG", "MobileNetSSD_deploy.prototxt")
-MODEL_WEIGHTS = os.getenv("MODEL_WEIGHTS", "MobileNetSSD_deploy.caffemodel")
-MODEL_CONFIG_PATH = MODELS_DIR / MODEL_CONFIG if MODEL_CONFIG and (MODELS_DIR / MODEL_CONFIG).exists() else MODEL_CONFIG
-MODEL_WEIGHTS_PATH = MODELS_DIR / MODEL_WEIGHTS if MODEL_WEIGHTS and (MODELS_DIR / MODEL_WEIGHTS).exists() else MODEL_WEIGHTS
+# YOLOv8 settings
+YOLO_MODEL = os.getenv("YOLO_MODEL", "yolov8s.pt")  # yolov8n.pt, yolov8s.pt, yolov8m.pt
+YOLO_DEVICE = os.getenv("YOLO_DEVICE", "auto")  # "cpu", "cuda", or "auto"
+YOLO_MODEL_PATH = MODELS_DIR / YOLO_MODEL if YOLO_MODEL else None
 
 # Detection settings
-CONF_THRESHOLD = float(os.getenv("CONF_THRESHOLD", "0.5"))
-INPUT_SIZE = (300, 300)  # MobileNet-SSD input size
+CONF_THRESHOLD = float(os.getenv("CONF_THRESHOLD", "0.35"))  # Lower for better detection of crowded people
 
 # ------------------------
 # VIDEO SOURCE

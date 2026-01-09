@@ -7,15 +7,14 @@ import cv2
 import numpy as np
 
 from ..config import (
-    MODEL_CONFIG_PATH, MODEL_WEIGHTS_PATH, CONF_THRESHOLD, INPUT_SIZE,
-    RESIZE_TO, LINE_POSITION, SMOOTH_ALPHA, HISTORY_MAX,
+    CONF_THRESHOLD, RESIZE_TO, LINE_POSITION, SMOOTH_ALPHA, HISTORY_MAX,
     MIN_HISTORY_TO_COUNT, DEBOUNCE_SEC, RECOUNT_TIMEOUT_SEC,
     MIN_MOVEMENT_PIXELS, INFO_PANEL_POS, WINDOW_NAME, MQTT_CONFIG,
-    HEADLESS, FRAME_SKIP, DETECTOR_TYPE
+    HEADLESS, FRAME_SKIP, DETECTOR_TYPE, YOLO_MODEL_PATH, YOLO_DEVICE
 )
 from ..stream import RTMPReader
 from ..mqtt import MQTTManager
-from .detector import PersonDetector, HOGDetector, TFLiteDetector
+from .yolo_detector import YOLOv8Detector, YOLOv8DetectorONNX
 from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -27,10 +26,7 @@ class PeopleCounter:
     """
     
     def __init__(self, source: str, *,
-                 model_config=MODEL_CONFIG_PATH,
-                 model_weights=MODEL_WEIGHTS_PATH,
                  conf=CONF_THRESHOLD,
-                 input_size=INPUT_SIZE,
                  resize_to=RESIZE_TO,
                  detector_type=DETECTOR_TYPE):
         """
@@ -38,30 +34,33 @@ class PeopleCounter:
         
         Args:
             source: Video source URL
-            model_config: Path to MobileNet-SSD config
-            model_weights: Path to MobileNet-SSD weights
             conf: Confidence threshold
-            input_size: Input size for network
             resize_to: Tuple (width, height) for frame resizing
-            detector_type: "tflite", "mobilenet", or "hog"
+            detector_type: "yolov8" or "yolov8_onnx"
         """
         self.source = source
         self.resize_to = resize_to
 
         # Initialize detector based on type
-        if detector_type == "tflite":
-            logger.info("Using TFLite detector (optimized for Raspberry Pi, ~8-15 FPS)")
+        if detector_type == "yolov8_onnx":
+            logger.info("Using YOLOv8 ONNX detector with SORT tracking")
             try:
-                self.detector = TFLiteDetector(conf=conf)
+                self.detector = YOLOv8DetectorONNX(conf=conf)
             except Exception as e:
-                logger.warning(f"TFLite failed: {e}, falling back to MobileNet-SSD")
-                self.detector = PersonDetector(model_config, model_weights, conf, input_size)
-        elif detector_type == "hog":
-            logger.info("Using HOG detector")
-            self.detector = HOGDetector(conf=conf)
+                logger.warning(f"YOLOv8 ONNX failed: {e}, falling back to YOLOv8")
+                self.detector = YOLOv8Detector(
+                    model_path=str(YOLO_MODEL_PATH) if YOLO_MODEL_PATH else None,
+                    conf=conf,
+                    device=YOLO_DEVICE
+                )
         else:
-            logger.info("Using MobileNet-SSD detector")
-            self.detector = PersonDetector(model_config, model_weights, conf, input_size)
+            # Default to YOLOv8
+            logger.info("Using YOLOv8 detector with SORT tracking")
+            self.detector = YOLOv8Detector(
+                model_path=str(YOLO_MODEL_PATH) if YOLO_MODEL_PATH else None,
+                conf=conf,
+                device=YOLO_DEVICE
+            )
 
         # Tracking & counting state
         self.track_history = defaultdict(lambda: deque(maxlen=HISTORY_MAX))
@@ -94,13 +93,14 @@ class PeopleCounter:
     def should_count(self, track_id, prev_x, curr_x, line_x):
         """
         Decide whether crossing happened.
+        Each track ID is counted independently.
         
         Returns:
             'in', 'out' or None
         """
         now = time.time()
 
-        # Debounce check
+        # Per-track debounce check - prevents same person counted multiple times
         last = self.last_count_time.get(track_id, 0.0)
         if now - last < DEBOUNCE_SEC:
             return None
@@ -108,20 +108,22 @@ class PeopleCounter:
         if prev_x is None:
             return None
 
-        # Minimum movement check
+        # Minimum movement check - prevents counting due to jitter
         if abs(curr_x - prev_x) < MIN_MOVEMENT_PIXELS:
             return None
 
-        # MASUK: left to right
-        if prev_x < line_x <= curr_x:
+        # MASUK: left to right (crossing the line from left side to right side)
+        if prev_x < line_x and curr_x >= line_x:
+            # Check if same action recently to prevent double count
             if self.last_count_type.get(track_id) == "in" and now - last < RECOUNT_TIMEOUT_SEC:
                 return None
             self.last_count_time[track_id] = now
             self.last_count_type[track_id] = "in"
             return "in"
 
-        # KELUAR: right to left
-        if prev_x > line_x >= curr_x:
+        # KELUAR: right to left (crossing the line from right side to left side)
+        if prev_x > line_x and curr_x <= line_x:
+            # Check if same action recently to prevent double count
             if self.last_count_type.get(track_id) == "out" and now - last < RECOUNT_TIMEOUT_SEC:
                 return None
             self.last_count_time[track_id] = now
@@ -159,18 +161,27 @@ class PeopleCounter:
             if has_ids:
                 track_id = int(ids[i])
                 
-                # Smoothing
+                # Get previous position before smoothing for crossing detection
+                prev_cx = None
+                if len(self.track_history[track_id]) > 0:
+                    prev_cx = self.track_history[track_id][-1][0]
+                
+                # Smoothing for display
+                display_cx, display_cy = cx, cy
                 if len(self.track_history[track_id]) > 0:
                     px, py = self.track_history[track_id][-1]
-                    cx = int(px * (1 - SMOOTH_ALPHA) + cx * SMOOTH_ALPHA)
-                    cy = int(py * (1 - SMOOTH_ALPHA) + cy * SMOOTH_ALPHA)
+                    display_cx = int(px * (1 - SMOOTH_ALPHA) + cx * SMOOTH_ALPHA)
+                    display_cy = int(py * (1 - SMOOTH_ALPHA) + cy * SMOOTH_ALPHA)
 
-                self.track_history[track_id].append((cx, cy))
+                self.track_history[track_id].append((display_cx, display_cy))
 
-                # Counting logic
-                if len(self.track_history[track_id]) >= MIN_HISTORY_TO_COUNT:
+                # Counting logic - check crossing with minimum history
+                # Use MIN_HISTORY_TO_COUNT=2 effectively (need at least prev and current)
+                min_hist = max(2, MIN_HISTORY_TO_COUNT)
+                if len(self.track_history[track_id]) >= min_hist:
+                    # Use mean of previous positions for more stable detection
                     prev_x_mean = self.compute_mean_prev_x(self.track_history[track_id], n=2)
-                    action = self.should_count(track_id, prev_x_mean, cx, line_x)
+                    action = self.should_count(track_id, prev_x_mean, display_cx, line_x)
                     
                     if action == "in":
                         self.people_in += 1
@@ -189,10 +200,10 @@ class PeopleCounter:
                     cv2.polylines(frame, [pts], False, (255, 255, 0), 2)
 
                 # Draw bbox
-                color = (0, 255, 0) if cx < line_x else (0, 0, 255)
+                color = (0, 255, 0) if display_cx < line_x else (0, 0, 255)
                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
                 cv2.putText(frame, f"ID:{track_id}", (x1, y1 - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
-                cv2.circle(frame, (cx, cy), 4, (0, 0, 255), -1)
+                cv2.circle(frame, (display_cx, display_cy), 4, (0, 0, 255), -1)
             else:
                 color = (200, 200, 0)
                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)

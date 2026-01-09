@@ -12,6 +12,16 @@ paho-mqtt>=1.6.0
 # Environment Variables
 python-dotenv>=1.0.0
 
-# TensorFlow Lite (for Raspberry Pi - much faster inference)
+# YOLOv8 (primary detector)
+ultralytics>=8.0.0
+
+# SORT Tracker dependencies
+filterpy>=1.4.5
+scipy>=1.7.0
+
+# Optional: ONNX Runtime (for edge deployment without ultralytics)
+# pip install onnxruntime
+
+# TensorFlow Lite (for Raspberry Pi - alternative detector)
 # On Raspberry Pi, install: pip install tflite-runtime
 # On PC for testing: pip install tensorflow
