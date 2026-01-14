@@ -120,6 +120,10 @@ class PeopleCounter:
 
         # MQTT manager
         self.mqtt_manager = MQTTManager(MQTT_CONFIG)
+        
+        # MQTT periodic update settings (every 1 second)
+        self.mqtt_update_interval = 1.0  # seconds
+        self.last_mqtt_update_time = 0.0
 
         # Runtime sizes
         self.rw = None
@@ -254,12 +258,10 @@ class PeopleCounter:
                         self.people_in += 1
                         self.people_inside += 1
                         logger.info(f"[MASUK] ID:{track_id} inside={self.people_inside} (in_total={self.people_in})")
-                        self.mqtt_manager.publish_count(self.people_inside)
                     elif action == "out":
                         self.people_out += 1
                         self.people_inside = max(0, self.people_inside - 1)
                         logger.info(f"[KELUAR] ID:{track_id} inside={self.people_inside} (out_total={self.people_out})")
-                        self.mqtt_manager.publish_count(self.people_inside)
 
                 # Draw trail
                 pts = np.array(self.track_history[track_id], dtype=np.int32)
@@ -349,6 +351,12 @@ class PeopleCounter:
             if boxes is not None and len(boxes) > 0:
                 frame = self.process_detections(boxes, ids, frame, line_x)
                 self.cleanup_stale_tracks()
+
+            # MQTT periodic update - publish every 1 second regardless of changes
+            current_time = time.time()
+            if current_time - self.last_mqtt_update_time >= self.mqtt_update_interval:
+                self.mqtt_manager.publish_count(self.people_inside)
+                self.last_mqtt_update_time = current_time
 
             # Only render UI if not headless
             if not HEADLESS:
